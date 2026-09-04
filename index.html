@@ -1,422 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Teachers Day – Classroom</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Classroom - Happy Teachers Day</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            overflow: hidden;
-            background: #1a1410;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            height: 100vh;
-            width: 100vw;
-        }
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            z-index: 20;
-            text-align: center;
-            background: rgba(0,0,0,0.75);
-            padding: 30px 50px;
-            border-radius: 16px;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        #loading .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(255,255,255,0.1);
-            border-top-color: #fda085;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        #loading p { margin: 0; font-size: 1rem; letter-spacing: 2px; color: #ccc; }
-        #info {
-            position: absolute;
-            bottom: 6%;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-            z-index: 10;
-        }
-        #info h1 {
-            font-size: clamp(2.5rem, 12vw, 5rem);
-            margin: 0;
-            background: linear-gradient(135deg, #f6d365, #fda085, #f093fb);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            filter: drop-shadow(0 10px 30px rgba(0,0,0,0.7));
-            animation: pulse 3s infinite;
-        }
-        #info p {
-            font-size: clamp(1rem, 4vw, 2rem);
-            color: #e0e8ff;
-            letter-spacing: 8px;
-            text-shadow: 0 2px 20px rgba(0,20,80,0.9);
-            -webkit-text-fill-color: #e0e8ff;
-            margin-top: 8px;
-        }
-        @keyframes pulse {
-            0%,100% { filter: drop-shadow(0 5px 20px rgba(253,160,133,0.3)); }
-            50% { filter: drop-shadow(0 5px 50px rgba(253,160,133,0.9)); }
-        }
-        @media (max-width: 600px) {
-            #info { bottom: 4%; }
-            #info p { letter-spacing: 4px; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        #loading { 
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); 
+            font-size: 20px; color: #333; 
         }
     </style>
 </head>
 <body>
+    <div id="loading">Loading classroom...</div>
 
-    <div id="loading">
-        <div class="spinner"></div>
-        <p>Loading Classroom Scene…</p>
-    </div>
-
-    <div id="info">
-        <h1> Happy Teachers Day </h1>
-    </div>
-
+    <!-- Import Three.js -->
     <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.126.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.126.0/examples/jsm/"
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
         }
-    }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // --- 1. SETUP SCENE, CAMERA, RENDERER (9:16) ---
+        // 1. Scene Setup
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1a1410); // warm dark fallback
+        scene.background = new THREE.Color(0xf0f0f0); // Light grey background like the image
 
-        const camera = new THREE.PerspectiveCamera(40, 9 / 16, 0.1, 100);
-        camera.position.set(2.0, 1.6, 4.0);
-        camera.lookAt(0, 1.2, -1.0);
+        // 2. Camera Setup (Mimicking the view in the image)
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Positioned towards the back of the classroom, looking at the chalkboard
+        camera.position.set(0, 2.2, 7); 
+        camera.lookAt(0, 1.8, 0);
 
+        // 3. Renderer Setup
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
         document.body.appendChild(renderer.domElement);
 
-        // --- 2. LIGHTING (realistic, warm) ---
-        const ambient = new THREE.AmbientLight(0x404066, 0.5);
-        scene.add(ambient);
+        // 4. Controls (Allows user to rotate around the classroom)
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 1.8, 0);
+        controls.update();
 
-        const keyLight = new THREE.DirectionalLight(0xffeedd, 1.8);
-        keyLight.position.set(-3, 5, 5);
-        keyLight.castShadow = true;
-        keyLight.shadow.mapSize.width = 1024;
-        keyLight.shadow.mapSize.height = 1024;
-        keyLight.shadow.bias = -0.001;
-        keyLight.shadow.camera.near = 0.5;
-        keyLight.shadow.camera.far = 15;
-        keyLight.shadow.camera.left = -5;
-        keyLight.shadow.camera.right = 5;
-        keyLight.shadow.camera.top = 5;
-        keyLight.shadow.camera.bottom = -5;
-        scene.add(keyLight);
+        // 5. Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+        scene.add(ambientLight);
 
-        const fillLight = new THREE.DirectionalLight(0x88aaff, 0.6);
-        fillLight.position.set(4, 2, -3);
-        scene.add(fillLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
 
-        const rimLight = new THREE.DirectionalLight(0xffaa66, 0.4);
-        rimLight.position.set(0, 1, -6);
-        scene.add(rimLight);
-
-        // --- 3. CREATE THE BLACKBOARD (with chalk text) ---
-        function createBlackboard() {
-            const group = new THREE.Group();
-
-            // Board surface
-            const boardMat = new THREE.MeshStandardMaterial({
-                color: 0x1a2a3a,
-                roughness: 0.8,
-                metalness: 0.1
-            });
-            const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), boardMat);
-            board.castShadow = true;
-            board.receiveShadow = true;
-            group.add(board);
-
-            // Chalk text via canvas texture
+        // 6. Chalkboard Text Generator
+        function createChalkboardTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#1a2a3a';
+
+            // Chalkboard Green Background
+            ctx.fillStyle = '#2e5c31'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw "Happy Teachers Day" with a chalk-like style
+            ctx.font = 'bold 55px "Comic Sans MS", cursive, sans-serif';
+            ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            // Glowing chalk effect
-            ctx.shadowColor = 'rgba(255, 240, 180, 0.7)';
-            ctx.shadowBlur = 30;
-            ctx.font = 'Bold 110px "Comic Sans MS", "Segoe UI", cursive';
-            ctx.fillStyle = '#f5e6d3';
-            ctx.fillText('Happy Teachers Day', canvas.width/2, canvas.height/2 - 40);
-            ctx.font = '60px "Segoe UI", sans-serif';
-            ctx.fillStyle = '#d4c9b8';
-            ctx.fillText('Thank You for Guiding Us', canvas.width/2, canvas.height/2 + 80);
-            // Add some chalk dust
-            ctx.shadowBlur = 0;
-            for (let i = 0; i < 400; i++) {
-                ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.25})`;
-                ctx.beginPath();
-                ctx.arc(Math.random()*canvas.width, Math.random()*canvas.height, Math.random()*3, 0, Math.PI*2);
-                ctx.fill();
-            }
-            const texture = new THREE.CanvasTexture(canvas);
-            const textMat = new THREE.MeshStandardMaterial({
-                map: texture,
-                emissive: 0x445566,
-                emissiveIntensity: 0.3,
-                side: THREE.DoubleSide,
-                transparent: true
-            });
-            const textPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.0), textMat);
-            textPlane.position.set(0, 0, 0.05);
-            group.add(textPlane);
-
-            // Wooden frame
-            const frameMat = new THREE.MeshStandardMaterial({ color: 0x5a3a2a, roughness: 0.9 });
-            const framePositions = [
-                { x: 0, y: 0.62, w: 2.5, h: 0.08 },
-                { x: 0, y: -0.62, w: 2.5, h: 0.08 },
-                { x: -1.24, y: 0, w: 0.08, h: 1.24 },
-                { x: 1.24, y: 0, w: 0.08, h: 1.24 }
-            ];
-            framePositions.forEach(p => {
-                const frame = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, 0.12), frameMat);
-                frame.position.set(p.x, p.y, 0);
-                frame.castShadow = true;
-                group.add(frame);
-            });
-
-            return group;
+            
+            // Add a slight shadow/blur to look more like chalk
+            ctx.shadowColor = 'rgba(255,255,255,0.5)';
+            ctx.shadowBlur = 10;
+            ctx.fillText("Happy Teachers Day", canvas.width / 2, canvas.height / 2);
+            
+            return new THREE.CanvasTexture(canvas);
         }
 
-        const blackboard = createBlackboard();
-        blackboard.position.set(0, 1.5, -1.8);
-        scene.add(blackboard);
-
-        // --- 4. CREATE A DESK (teacher's desk or student's desk) ---
-        function createDesk() {
-            const group = new THREE.Group();
-            const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b6b4d, roughness: 0.8, metalness: 0.0 });
-            const top = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.8), woodMat);
-            top.position.y = 0.5;
-            top.castShadow = true;
-            top.receiveShadow = true;
-            group.add(top);
-            // Legs
-            const legMat = new THREE.MeshStandardMaterial({ color: 0x5a3a2a, roughness: 0.7 });
-            const legPositions = [[-0.5, 0, -0.3], [0.5, 0, -0.3], [-0.5, 0, 0.3], [0.5, 0, 0.3]];
-            legPositions.forEach(pos => {
-                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 6), legMat);
-                leg.position.set(pos[0], 0.25, pos[2]);
-                leg.castShadow = true;
-                group.add(leg);
-            });
-            return group;
-        }
-
-        const desk = createDesk();
-        desk.position.set(0, 0.0, 1.2); // in front of camera
-        scene.add(desk);
-
-        // --- 5. LOAD CLASSROOM MODEL (basic_classroom.glb) ---
-        // PASTE YOUR CLASSROOM GLB URL HERE:
-        const classroomUrl = 'low_poly_classroom.glb'; 
-
+        // 7. Load the 3D Model
         const loader = new GLTFLoader();
-        let classroomLoaded = false;
-
+        
         loader.load(
-            classroomUrl,
-            (gltf) => {
+            'low_poly_classroom.glb', 
+            function (gltf) {
                 const model = gltf.scene;
-                // Scale & position to fit the scene – you may need to adjust
-                model.scale.set(1, 1, 1);
-                model.position.set(0, -0.5, 0); // shift down if needed
-                // Ensure shadows
-                model.traverse(node => {
-                    if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
+                
+                // Enable shadows on all meshes
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
                     }
                 });
+                
+                // Try to find the chalkboard mesh
+                let boardMesh = null;
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        const name = child.name.toLowerCase();
+                        // Look for common names for chalkboards
+                        if (name.includes('board') || name.includes('chalk') || name.includes('blackboard')) {
+                            boardMesh = child;
+                        }
+                    }
+                });
+
+                // If a chalkboard was found, apply the "Happy Teachers Day" texture
+                if (boardMesh) {
+                    const chalkTexture = createChalkboardTexture();
+                    
+                    // Handle both single and multi-materials
+                    const materials = Array.isArray(boardMesh.material) ? boardMesh.material : [boardMesh.material];
+                    materials.forEach(mat => {
+                        mat.map = chalkTexture;
+                        mat.needsUpdate = true;
+                    });
+                    console.log("Success: Text written on the chalkboard!");
+                } else {
+                    // Fallback: If no mesh named 'board' is found, place a text plane in front
+                    console.log("Chalkboard not found. Placing text plane at default front position.");
+                    
+                    const chalkTexture = createChalkboardTexture();
+                    const planeMat = new THREE.MeshBasicMaterial({ map: chalkTexture, transparent: true });
+                    const planeGeom = new THREE.PlaneGeometry(5, 2.5);
+                    const textPlane = new THREE.Mesh(planeGeom, planeMat);
+                    
+                    // Assuming the front of the class is at Z = -5
+                    textPlane.position.set(0, 2.2, -4.9); 
+                    scene.add(textPlane);
+                }
+
                 scene.add(model);
-                classroomLoaded = true;
-                document.querySelector('#loading p').textContent = 'Classroom loaded!';
-                setTimeout(() => {
-                    document.getElementById('loading').style.opacity = '0';
-                    setTimeout(() => document.getElementById('loading').style.display = 'none', 800);
-                }, 800);
+                document.getElementById('loading').style.display = 'none';
             },
-            (xhr) => {
-                const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
-                document.querySelector('#loading p').textContent = `Loading Classroom ${percent}%`;
-            },
-            (error) => {
-                console.error('Classroom load error:', error);
-                document.querySelector('#loading p').textContent = '⚠️ Classroom failed, but scene still works!';
-                setTimeout(() => {
-                    document.getElementById('loading').style.opacity = '0';
-                    setTimeout(() => document.getElementById('loading').style.display = 'none', 800);
-                }, 2000);
+            undefined, 
+            function (error) {
+                console.error(error);
+                document.getElementById('loading').textContent = 'Failed to load low_poly_classroom.glb. Please ensure the file is in the same directory.';
             }
         );
 
-        // --- 6. OBJECTS ON THE DESK (book, apple, pencil, etc.) ---
-        // Define your objects: name, URL, position on desk, scale
-        // PASTE YOUR OBJECT GLB URLs HERE:
-        const deskObjects = [
-            {
-                name: 'Book',
-                url: 'YOUR_BOOK_GLB_URL_HERE',   // <-- EDIT
-                position: [-0.35, 0.6, 0.1],
-                scale: 0.8
-            },
-            {
-                name: 'Apple',
-                url: 'YOUR_APPLE_GLB_URL_HERE',  // <-- EDIT
-                position: [0.35, 0.6, -0.1],
-                scale: 0.6
-            },
-            {
-                name: 'Pencil',
-                url: 'YOUR_PENCIL_GLB_URL_HERE', // <-- EDIT
-                position: [-0.1, 0.6, -0.25],
-                scale: 0.5
-            }
-        ];
-
-        // Load each object
-        deskObjects.forEach((objData) => {
-            loader.load(
-                objData.url,
-                (gltf) => {
-                    const model = gltf.scene;
-                    model.scale.set(objData.scale, objData.scale, objData.scale);
-                    model.position.set(objData.position[0], objData.position[1], objData.position[2]);
-                    // Rotate slightly for natural look
-                    model.rotation.y = Math.random() * 0.5 - 0.25;
-                    model.traverse(node => {
-                        if (node.isMesh) {
-                            node.castShadow = true;
-                            node.receiveShadow = true;
-                        }
-                    });
-                    scene.add(model);
-                    console.log(`${objData.name} loaded`);
-                },
-                undefined,
-                (error) => {
-                    console.warn(`Failed to load ${objData.name}, using fallback shape.`);
-                    // Fallback: create a simple shape with color
-                    let geometry, color;
-                    switch(objData.name) {
-                        case 'Book': geometry = new THREE.BoxGeometry(0.25, 0.12, 0.18); color = 0x8b1e1e; break;
-                        case 'Apple': geometry = new THREE.SphereGeometry(0.12, 16, 16); color = 0xcc2233; break;
-                        case 'Pencil': geometry = new THREE.CylinderGeometry(0.03, 0.03, 0.25, 6); color = 0xf4c542; break;
-                        default: geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1); color = 0xffaa00;
-                    }
-                    const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
-                    const mesh = new THREE.Mesh(geometry, mat);
-                    mesh.scale.set(objData.scale, objData.scale, objData.scale);
-                    mesh.position.set(objData.position[0], objData.position[1], objData.position[2]);
-                    mesh.castShadow = true;
-                    mesh.receiveShadow = true;
-                    scene.add(mesh);
-                }
-            );
-        });
-
-        // --- 7. FLOATING PARTICLES (magic dust) ---
-        function createParticles() {
-            const count = 200;
-            const positions = new Float32Array(count * 3);
-            for (let i = 0; i < count; i++) {
-                positions[i*3] = (Math.random() - 0.5) * 8;
-                positions[i*3+1] = (Math.random() - 0.5) * 4 + 1.5;
-                positions[i*3+2] = (Math.random() - 0.5) * 6 - 1;
-            }
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const mat = new THREE.PointsMaterial({
-                color: 0xffdd99,
-                size: 0.05,
-                transparent: true,
-                opacity: 0.5,
-                blending: THREE.AdditiveBlending,
-                sizeAttenuation: true
-            });
-            const points = new THREE.Points(geo, mat);
-            scene.add(points);
-            return points;
-        }
-        const particles = createParticles();
-
-        // --- 8. ANIMATION LOOP ---
-        const clock = new THREE.Clock();
-
+        // 8. Animation Loop
         function animate() {
-            const elapsed = performance.now() / 1000;
-
-            // Slowly orbit camera (subtle)
-            const radius = 4.5;
-            const angle = elapsed * 0.06;
-            camera.position.x = Math.sin(angle) * radius * 0.3;
-            camera.position.z = 4.0 + Math.cos(angle) * radius * 0.3;
-            camera.position.y = 1.6 + Math.sin(angle * 0.4) * 0.1;
-            camera.lookAt(0, 1.2, -1.0);
-
-            // Float particles
-            const pos = particles.geometry.attributes.position.array;
-            for (let i = 0; i < pos.length; i += 3) {
-                pos[i+1] += Math.sin(elapsed * 0.5 + pos[i]) * 0.0005;
-                pos[i] += Math.cos(elapsed * 0.3 + pos[i+1]) * 0.0005;
-                if (pos[i] > 4) pos[i] = -4;
-                if (pos[i] < -4) pos[i] = 4;
-                if (pos[i+1] > 3.5) pos[i+1] = 0;
-                if (pos[i+1] < 0) pos[i+1] = 3.5;
-            }
-            particles.geometry.attributes.position.needsUpdate = true;
-
-            renderer.render(scene, camera);
             requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
         }
-        animate();
 
-        // --- 9. RESIZE HANDLER ---
+        // 9. Window Resize Handling
         window.addEventListener('resize', () => {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            camera.aspect = w / h;
+            camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(w, h);
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        console.log('🎓 Teachers Day Classroom – ready for your GLB files!');
+        // Start the loop
+        animate();
     </script>
 </body>
 </html>
