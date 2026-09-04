@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Classroom - Happy Teachers Day</title>
+    <title>Surprise - Happy Teachers Day</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; }
         canvas { display: block; }
         #loading { 
             position: absolute; top: 50%; left: 50%; 
             transform: translate(-50%, -50%); 
-            font-size: 20px; color: #333; 
+            font-size: 24px; 
+            font-family: sans-serif; 
+            color: #333; 
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <div id="loading">Loading classroom...</div>
+    <div id="loading">Preparing the classroom...</div>
 
     <!-- Import Three.js -->
     <script type="importmap">
@@ -34,137 +37,156 @@
 
         // 1. Scene Setup
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xf0f0f0); // Light grey background like the image
+        scene.background = new THREE.Color(0xf0f0f0);
 
-        // 2. Camera Setup (Mimicking the view in the image)
+        // 2. Camera (Matches the exact view in your screenshot)
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        // Positioned towards the back of the classroom, looking at the chalkboard
-        camera.position.set(0, 2.2, 7); 
-        camera.lookAt(0, 1.8, 0);
+        camera.position.set(6, 3.5, 8); 
+        camera.lookAt(-3, 2, -5);
 
-        // 3. Renderer Setup
+        // 3. Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // 4. Controls (Allows user to rotate around the classroom)
+        // 4. Controls (Allow user to look around after the reveal)
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.set(0, 1.8, 0);
+        controls.target.set(-3, 2, -5);
         controls.update();
 
         // 5. Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-        scene.add(ambientLight);
-
+        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
         dirLight.position.set(5, 10, 7);
-        dirLight.castShadow = true;
         scene.add(dirLight);
 
-        // 6. Chalkboard Text Generator
-        function createChalkboardTexture() {
+        // 6. Create Whiteboard Texture
+        function createWhiteboardTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
-
-            // Chalkboard Green Background
-            ctx.fillStyle = '#2e5c31'; 
+            
+            // Pure white board
+            ctx.fillStyle = '#ffffff'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw "Happy Teachers Day" with a chalk-like style
-            ctx.font = 'bold 55px "Comic Sans MS", cursive, sans-serif';
-            ctx.fillStyle = '#ffffff';
+            // Write the message
+            ctx.font = 'bold 60px "Comic Sans MS", cursive, sans-serif';
+            ctx.fillStyle = '#333333'; 
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
-            // Add a slight shadow/blur to look more like chalk
-            ctx.shadowColor = 'rgba(255,255,255,0.5)';
-            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 8;
             ctx.fillText("Happy Teachers Day", canvas.width / 2, canvas.height / 2);
             
             return new THREE.CanvasTexture(canvas);
         }
 
-        // 7. Load the 3D Model
+        // 7. Load the Model
         const loader = new GLTFLoader();
         
-        loader.load(
-            'low_poly_classroom.glb', 
-            function (gltf) {
-                const model = gltf.scene;
+        loader.load('low_poly_classroom.glb', function (gltf) {
+            const model = gltf.scene;
+            
+            // Enable shadows
+            model.traverse((child) => { 
+                if (child.isMesh) { 
+                    child.castShadow = true; 
+                    child.receiveShadow = true; 
+                } 
+            });
+
+            scene.add(model);
+
+            // --- AUTOMATIC SURPRISE LOGIC ---
+            // We wait 1 frame to ensure materials are properly loaded, then run the logic.
+            requestAnimationFrame(() => {
+                let greenBoardMesh = null;
+                let whiteBoardMesh = null;
                 
-                // Enable shadows on all meshes
-                model.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
-                
-                // Try to find the chalkboard mesh
-                let boardMesh = null;
-                model.traverse((child) => {
-                    if (child.isMesh) {
-                        const name = child.name.toLowerCase();
-                        // Look for common names for chalkboards
-                        if (name.includes('board') || name.includes('chalk') || name.includes('blackboard')) {
-                            boardMesh = child;
+                // Store all meshes to compare
+                const meshes = [];
+                model.traverse((child) => { if (child.isMesh) meshes.push(child); });
+
+                // A) Find the Greenest Mesh (Green board)
+                let maxGreenScore = -1;
+                meshes.forEach(mesh => {
+                    if (mesh.material && mesh.material.color) {
+                        const c = mesh.material.color;
+                        // Green score: high G, low R and B
+                        const score = c.g - c.r - c.b;
+                        if (score > maxGreenScore) {
+                            maxGreenScore = score;
+                            greenBoardMesh = mesh;
                         }
                     }
                 });
 
-                // If a chalkboard was found, apply the "Happy Teachers Day" texture
-                if (boardMesh) {
-                    const chalkTexture = createChalkboardTexture();
-                    
-                    // Handle both single and multi-materials
-                    const materials = Array.isArray(boardMesh.material) ? boardMesh.material : [boardMesh.material];
-                    materials.forEach(mat => {
-                        mat.map = chalkTexture;
-                        mat.needsUpdate = true;
-                    });
-                    console.log("Success: Text written on the chalkboard!");
-                } else {
-                    // Fallback: If no mesh named 'board' is found, place a text plane in front
-                    console.log("Chalkboard not found. Placing text plane at default front position.");
-                    
-                    const chalkTexture = createChalkboardTexture();
-                    const planeMat = new THREE.MeshBasicMaterial({ map: chalkTexture, transparent: true });
-                    const planeGeom = new THREE.PlaneGeometry(5, 2.5);
-                    const textPlane = new THREE.Mesh(planeGeom, planeMat);
-                    
-                    // Assuming the front of the class is at Z = -5
-                    textPlane.position.set(0, 2.2, -4.9); 
-                    scene.add(textPlane);
+                // B) Find the Whitest Mesh on the Front Wall (Whiteboard)
+                let maxWhiteScore = -1;
+                meshes.forEach(mesh => {
+                    if (mesh.material && mesh.material.color) {
+                        const c = mesh.material.color;
+                        // Must be very bright (white)
+                        const score = (c.r + c.g + c.b);
+                        // Must be on the front wall (facing the camera, negative Z axis)
+                        const isFrontWall = mesh.position.z < -2; 
+                        
+                        if (isFrontWall && score > maxWhiteScore) {
+                            maxWhiteScore = score;
+                            whiteBoardMesh = mesh;
+                        }
+                    }
+                });
+
+                // C) Apply the changes
+                if (greenBoardMesh) {
+                    greenBoardMesh.visible = false; // Hide green board
                 }
 
-                scene.add(model);
-                document.getElementById('loading').style.display = 'none';
-            },
-            undefined, 
-            function (error) {
-                console.error(error);
-                document.getElementById('loading').textContent = 'Failed to load low_poly_classroom.glb. Please ensure the file is in the same directory.';
-            }
-        );
+                if (whiteBoardMesh) {
+                    const texture = createWhiteboardTexture();
+                    const mats = Array.isArray(whiteBoardMesh.material) ? whiteBoardMesh.material : [whiteBoardMesh.material];
+                    mats.forEach(mat => {
+                        mat.map = texture;
+                        mat.needsUpdate = true;
+                    });
+                } else {
+                    // Failsafe: If a whiteboard isn't found, place a text plane on the wall
+                    const texture = createWhiteboardTexture();
+                    const plane = new THREE.Mesh(
+                        new THREE.PlaneGeometry(4, 2),
+                        new THREE.MeshBasicMaterial({ map: texture })
+                    );
+                    plane.position.set(-3, 2.2, -4.9);
+                    scene.add(plane);
+                }
 
-        // 8. Animation Loop
+                // Remove loading text
+                document.getElementById('loading').style.display = 'none';
+            });
+
+        }, undefined, function (error) {
+            console.error("Error loading model:", error);
+            document.getElementById('loading').textContent = 'Error: Please make sure "low_poly_classroom.glb" is in the same folder.';
+        });
+
+        // 8. Animate
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
         }
 
-        // 9. Window Resize Handling
+        // 9. Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Start the loop
         animate();
     </script>
 </body>
