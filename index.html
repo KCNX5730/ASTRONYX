@@ -49,12 +49,11 @@ sun.shadow.mapSize.set(2048,2048);
 scene.add(sun);
 
 // --- GROUND WITH GRID IMAGE ---
-// Save the grid image you provided as "grid.png" in the same folder
 const textureLoader = new THREE.TextureLoader();
-const gridTexture = textureLoader.load('./grid.png');
+const gridTexture = textureLoader.load('./grid.png'); // Make sure grid.png is in same folder
 gridTexture.wrapS = THREE.RepeatWrapping;
 gridTexture.wrapT = THREE.RepeatWrapping;
-gridTexture.repeat.set(20, 20); // Adjust how many times the grid repeats across the 160x160 plane
+gridTexture.repeat.set(20, 20);
 
 const ground=new THREE.Mesh(
  new THREE.PlaneGeometry(160,160),
@@ -84,8 +83,61 @@ let grounded=true, yaw=0, pitch=-0.12;
 const move={x:0,y:0};
 const speed=5.2, gravity=18, jumpPower=7.5;
 
-// Load supplied character
-new GLTFLoader().load("./assets/Teacher_Joe_03.glb", gltf=>{
+// --- FALLBACK CHARACTER (if GLB fails to load) ---
+function createFallbackCharacter() {
+  const group = new THREE.Group();
+  
+  // Body
+  const bodyMat = new THREE.MeshStandardMaterial({color: 0x3366ff, roughness: 0.6});
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 1.2, 16), bodyMat);
+  body.position.y = 0.8;
+  body.castShadow = true;
+  group.add(body);
+  
+  // Head
+  const headMat = new THREE.MeshStandardMaterial({color: 0xffcc66, roughness: 0.4});
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), headMat);
+  head.position.y = 1.65;
+  head.castShadow = true;
+  group.add(head);
+  
+  // Eyes
+  const eyeMat = new THREE.MeshStandardMaterial({color: 0x000000});
+  const eye1 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+  eye1.position.set(0.1, 1.7, 0.2);
+  group.add(eye1);
+  const eye2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+  eye2.position.set(-0.1, 1.7, 0.2);
+  group.add(eye2);
+  
+  // Arms
+  const armMat = new THREE.MeshStandardMaterial({color: 0x3366ff});
+  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.8, 8), armMat);
+  armL.position.set(0.4, 0.9, 0);
+  armL.rotation.z = 0.2;
+  armL.castShadow = true;
+  group.add(armL);
+  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.8, 8), armMat);
+  armR.position.set(-0.4, 0.9, 0);
+  armR.rotation.z = -0.2;
+  armR.castShadow = true;
+  group.add(armR);
+  
+  // Legs
+  const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.6, 8), bodyMat);
+  legL.position.set(0.15, 0.3, 0);
+  legL.castShadow = true;
+  group.add(legL);
+  const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.6, 8), bodyMat);
+  legR.position.set(-0.15, 0.3, 0);
+  legR.castShadow = true;
+  group.add(legR);
+  
+  return group;
+}
+
+// Try to load the GLB model from root folder; if it fails, use fallback
+new GLTFLoader().load("./Teacher_Joe_03.glb", gltf=>{
  model=gltf.scene;
  model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
  player=new THREE.Group(); player.add(model); player.position.set(0,0,10);
@@ -93,8 +145,15 @@ new GLTFLoader().load("./assets/Teacher_Joe_03.glb", gltf=>{
  scene.add(player);
  document.getElementById("loading").style.display="none";
 }, undefined, err=>{
- console.error(err);
- document.getElementById("loading").textContent="Could not load the 3D model.";
+ console.error("GLB failed to load, using fallback character.", err);
+ // Create fallback character
+ model = createFallbackCharacter();
+ player = new THREE.Group();
+ player.add(model);
+ player.position.set(0,0,10);
+ scene.add(player);
+ document.getElementById("loading").style.display="none";
+ document.getElementById("loading").textContent = "Character loaded (fallback)";
 });
 
 function jump(){
