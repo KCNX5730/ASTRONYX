@@ -37,8 +37,7 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xf0f0f0);
 
-        // --- CAMERA: EXACT STUDENT VIEW MATCHING YOUR IMAGE ---
-        // Positioned at the back center, looking straight at the front whiteboard
+        // Camera matching your exact view
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 2.2, 8); 
         camera.lookAt(0, 2.5, -6);
@@ -66,7 +65,7 @@
             ctx.fillStyle = '#ffffff'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.font = 'bold 60px "Comic Sans MS", cursive, sans-serif';
+            ctx.font = 'bold 70px "Comic Sans MS", cursive, sans-serif';
             ctx.fillStyle = '#333333'; 
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -91,66 +90,44 @@
 
             scene.add(model);
 
-            // Wait for the model to be ready
+            // Process the model
             requestAnimationFrame(() => {
-                let greenBoardMesh = null;
-                let whiteBoardMesh = null;
-                
                 const meshes = [];
                 model.traverse((child) => { if (child.isMesh) meshes.push(child); });
 
-                // A) Find the Greenest Mesh (Green board on the right wall)
-                let maxGreenScore = -1;
+                // 1. HIDE THE GREEN BOARD (Right wall)
                 meshes.forEach(mesh => {
                     if (mesh.material && mesh.material.color) {
                         const c = mesh.material.color;
-                        const score = c.g - c.r - c.b;
-                        if (score > maxGreenScore) {
-                            maxGreenScore = score;
-                            greenBoardMesh = mesh;
+                        // If very green, hide it
+                        if (c.g > 0.2 && c.g > c.r + 0.1 && c.g > c.b + 0.1) {
+                            mesh.visible = false;
                         }
                     }
                 });
-                if (greenBoardMesh) greenBoardMesh.visible = false;
 
-                // B) Find the Whiteboard (Mesh on the front wall facing us)
-                // Front wall is where Z is negative (Looking at -6)
-                let bestScore = -1;
+                // 2. CLEAN UP: Remove textures from floating meshes (like that tiny white cube)
                 meshes.forEach(mesh => {
-                    if (mesh.material && mesh.material.color && mesh.position.z < -3) {
-                        const box = new THREE.Box3().setFromObject(mesh);
-                        const size = box.getSize(new THREE.Vector3());
-                        const area = size.x * size.y;
-                        const brightness = (mesh.material.color.r + mesh.material.color.g + mesh.material.color.b);
-                        const score = area + (brightness * 10); 
-
-                        if (score > bestScore) {
-                            bestScore = score;
-                            whiteBoardMesh = mesh;
-                        }
+                    // If it is in the middle of the room (Z between -2 and 5) AND has a map...
+                    if (mesh.position.z > -2 && mesh.material && mesh.material.map) {
+                        mesh.material.map = null; // Remove the floating text
+                        mesh.material.needsUpdate = true;
                     }
                 });
 
-                // C) Apply the text
-                if (whiteBoardMesh) {
-                    const texture = createWhiteboardTexture();
-                    const mats = Array.isArray(whiteBoardMesh.material) ? whiteBoardMesh.material : [whiteBoardMesh.material];
-                    mats.forEach(mat => {
-                        mat.map = texture;
-                        mat.needsUpdate = true;
-                    });
-                } else {
-                    // FALLBACK: Place text plane directly on the front wall (facing the camera)
-                    const texture = createWhiteboardTexture();
-                    const newBoard = new THREE.Mesh(
-                        new THREE.PlaneGeometry(5, 2.5),
-                        new THREE.MeshBasicMaterial({ map: texture })
-                    );
-                    // Coordinate exactly where the whiteboard is in your screenshot
-                    newBoard.position.set(0, 2.5, -5.9); 
-                    // Do NOT rotate it, so it faces the camera at Z=8
-                    scene.add(newBoard);
-                }
+                // 3. PLACE NEW PERFECT WHITEBOARD EXACTLY ON FRONT WALL
+                // Using MeshBasicMaterial so it is always perfectly visible
+                const texture = createWhiteboardTexture();
+                const newBoard = new THREE.Mesh(
+                    new THREE.PlaneGeometry(6, 3), // Large board size
+                    new THREE.MeshBasicMaterial({ map: texture })
+                );
+                // Placed exactly where the blank white board is (front wall)
+                // Z is -5.9, slightly in front of the wall to avoid z-fighting
+                newBoard.position.set(0, 2.6, -5.9); 
+                
+                // DO NOT ROTATE. It faces positive Z (towards the camera)
+                scene.add(newBoard);
 
                 document.getElementById('loading').style.display = 'none';
             });
