@@ -35,14 +35,15 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        //  1. Scene Setup
+        // 1. Scene Setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xf0f0f0);
 
-        // 2. Camera (Matches the exact view in your screenshot)
+        // 2. Camera (Student Desk View - looking directly at the front whiteboard)
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(6, 3.5, 8); 
-        camera.lookAt(-3, 2, -5);
+        // Positioned at a student's desk, slightly lower height, looking straight at the front (Z negative)
+        camera.position.set(-2, 1.8, 4.5); 
+        camera.lookAt(-2, 2.0, -6);
 
         // 3. Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -50,9 +51,9 @@
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // 4. Controls (Allow user to look around after the reveal)
+        // 4. Controls (Allows looking around the room)
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.set(-3, 2, -5);
+        controls.target.set(-2, 2.0, -6);
         controls.update();
 
         // 5. Lighting
@@ -100,22 +101,19 @@
 
             scene.add(model);
 
-            // --- AUTOMATIC SURPRISE LOGIC ---
-            // We wait 1 frame to ensure materials are properly loaded, then run the logic.
+            // --- AUTOMATIC SURPRISE LOGIC (Wait 1 frame for materials) ---
             requestAnimationFrame(() => {
                 let greenBoardMesh = null;
                 let whiteBoardMesh = null;
                 
-                // Store all meshes to compare
                 const meshes = [];
                 model.traverse((child) => { if (child.isMesh) meshes.push(child); });
 
-                // A) Find the Greenest Mesh (Green board)
+                // A) Find and Delete the Greenest Mesh (Green board)
                 let maxGreenScore = -1;
                 meshes.forEach(mesh => {
                     if (mesh.material && mesh.material.color) {
                         const c = mesh.material.color;
-                        // Green score: high G, low R and B
                         const score = c.g - c.r - c.b;
                         if (score > maxGreenScore) {
                             maxGreenScore = score;
@@ -123,29 +121,29 @@
                         }
                     }
                 });
+                if (greenBoardMesh) greenBoardMesh.visible = false;
 
-                // B) Find the Whitest Mesh on the Front Wall (Whiteboard)
-                let maxWhiteScore = -1;
+                // B) Find the Whiteboard (Largest, brightest mesh on the front wall at Z < -2)
+                let maxWhiteSize = -1;
                 meshes.forEach(mesh => {
-                    if (mesh.material && mesh.material.color) {
-                        const c = mesh.material.color;
-                        // Must be very bright (white)
-                        const score = (c.r + c.g + c.b);
-                        // Must be on the front wall (facing the camera, negative Z axis)
-                        const isFrontWall = mesh.position.z < -2; 
-                        
-                        if (isFrontWall && score > maxWhiteScore) {
-                            maxWhiteScore = score;
+                    if (mesh.material && mesh.material.color && mesh.position.z < -2) {
+                        // Calculate approximate size of the mesh bounding box to find the big board
+                        const box = new THREE.Box3().setFromObject(mesh);
+                        const size = box.getSize(new THREE.Vector3());
+                        const area = size.x * size.y;
+
+                        // Prioritize large areas that are also fairly bright
+                        const brightness = (mesh.material.color.r + mesh.material.color.g + mesh.material.color.b);
+                        const score = area + (brightness * 10); 
+
+                        if (score > maxWhiteSize) {
+                            maxWhiteSize = score;
                             whiteBoardMesh = mesh;
                         }
                     }
                 });
 
-                // C) Apply the changes
-                if (greenBoardMesh) {
-                    greenBoardMesh.visible = false; // Hide green board
-                }
-
+                // C) Apply the text
                 if (whiteBoardMesh) {
                     const texture = createWhiteboardTexture();
                     const mats = Array.isArray(whiteBoardMesh.material) ? whiteBoardMesh.material : [whiteBoardMesh.material];
@@ -154,14 +152,16 @@
                         mat.needsUpdate = true;
                     });
                 } else {
-                    // Failsafe: If a whiteboard isn't found, place a text plane on the wall
+                    // BULLETPROOF FAILSAFE: Place a physical whiteboard mesh directly in front of the desks
+                    console.log("Whiteboard not found. Placing a new one in front of the desks.");
                     const texture = createWhiteboardTexture();
-                    const plane = new THREE.Mesh(
-                        new THREE.PlaneGeometry(4, 2),
+                    const newBoard = new THREE.Mesh(
+                        new THREE.PlaneGeometry(5, 2.5),
                         new THREE.MeshBasicMaterial({ map: texture })
                     );
-                    plane.position.set(-3, 2.2, -4.9);
-                    scene.add(plane);
+                    // Front wall location
+                    newBoard.position.set(-2, 2.0, -5.8);
+                    scene.add(newBoard);
                 }
 
                 // Remove loading text
