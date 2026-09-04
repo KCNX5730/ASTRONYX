@@ -20,7 +20,6 @@
 <body>
     <div id="loading">Preparing the classroom...</div>
 
-    <!-- Import Three.js -->
     <script type="importmap">
         {
             "imports": {
@@ -35,45 +34,38 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // 1. Scene Setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xf0f0f0);
 
-        // 2. Camera (Student Desk View - looking directly at the front whiteboard)
+        // --- CAMERA: EXACT STUDENT VIEW MATCHING YOUR IMAGE ---
+        // Positioned at the back center, looking straight at the front whiteboard
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        // Positioned at a student's desk, slightly lower height, looking straight at the front (Z negative)
-        camera.position.set(-2, 1.8, 4.5); 
-        camera.lookAt(-2, 2.0, -6);
+        camera.position.set(0, 2.2, 8); 
+        camera.lookAt(0, 2.5, -6);
 
-        // 3. Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // 4. Controls (Allows looking around the room)
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.set(-2, 2.0, -6);
+        controls.target.set(0, 2.5, -6);
         controls.update();
 
-        // 5. Lighting
         scene.add(new THREE.AmbientLight(0xffffff, 0.9));
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
         dirLight.position.set(5, 10, 7);
         scene.add(dirLight);
 
-        // 6. Create Whiteboard Texture
         function createWhiteboardTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
             
-            // Pure white board
             ctx.fillStyle = '#ffffff'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Write the message
             ctx.font = 'bold 60px "Comic Sans MS", cursive, sans-serif';
             ctx.fillStyle = '#333333'; 
             ctx.textAlign = 'center';
@@ -85,13 +77,11 @@
             return new THREE.CanvasTexture(canvas);
         }
 
-        // 7. Load the Model
         const loader = new GLTFLoader();
         
         loader.load('low_poly_classroom.glb', function (gltf) {
             const model = gltf.scene;
             
-            // Enable shadows
             model.traverse((child) => { 
                 if (child.isMesh) { 
                     child.castShadow = true; 
@@ -101,7 +91,7 @@
 
             scene.add(model);
 
-            // --- AUTOMATIC SURPRISE LOGIC (Wait 1 frame for materials) ---
+            // Wait for the model to be ready
             requestAnimationFrame(() => {
                 let greenBoardMesh = null;
                 let whiteBoardMesh = null;
@@ -109,7 +99,7 @@
                 const meshes = [];
                 model.traverse((child) => { if (child.isMesh) meshes.push(child); });
 
-                // A) Find and Delete the Greenest Mesh (Green board)
+                // A) Find the Greenest Mesh (Green board on the right wall)
                 let maxGreenScore = -1;
                 meshes.forEach(mesh => {
                     if (mesh.material && mesh.material.color) {
@@ -123,21 +113,19 @@
                 });
                 if (greenBoardMesh) greenBoardMesh.visible = false;
 
-                // B) Find the Whiteboard (Largest, brightest mesh on the front wall at Z < -2)
-                let maxWhiteSize = -1;
+                // B) Find the Whiteboard (Mesh on the front wall facing us)
+                // Front wall is where Z is negative (Looking at -6)
+                let bestScore = -1;
                 meshes.forEach(mesh => {
-                    if (mesh.material && mesh.material.color && mesh.position.z < -2) {
-                        // Calculate approximate size of the mesh bounding box to find the big board
+                    if (mesh.material && mesh.material.color && mesh.position.z < -3) {
                         const box = new THREE.Box3().setFromObject(mesh);
                         const size = box.getSize(new THREE.Vector3());
                         const area = size.x * size.y;
-
-                        // Prioritize large areas that are also fairly bright
                         const brightness = (mesh.material.color.r + mesh.material.color.g + mesh.material.color.b);
                         const score = area + (brightness * 10); 
 
-                        if (score > maxWhiteSize) {
-                            maxWhiteSize = score;
+                        if (score > bestScore) {
+                            bestScore = score;
                             whiteBoardMesh = mesh;
                         }
                     }
@@ -152,19 +140,18 @@
                         mat.needsUpdate = true;
                     });
                 } else {
-                    // BULLETPROOF FAILSAFE: Place a physical whiteboard mesh directly in front of the desks
-                    console.log("Whiteboard not found. Placing a new one in front of the desks.");
+                    // FALLBACK: Place text plane directly on the front wall (facing the camera)
                     const texture = createWhiteboardTexture();
                     const newBoard = new THREE.Mesh(
                         new THREE.PlaneGeometry(5, 2.5),
                         new THREE.MeshBasicMaterial({ map: texture })
                     );
-                    // Front wall location
-                    newBoard.position.set(-2, 2.0, -5.8);
+                    // Coordinate exactly where the whiteboard is in your screenshot
+                    newBoard.position.set(0, 2.5, -5.9); 
+                    // Do NOT rotate it, so it faces the camera at Z=8
                     scene.add(newBoard);
                 }
 
-                // Remove loading text
                 document.getElementById('loading').style.display = 'none';
             });
 
@@ -173,14 +160,12 @@
             document.getElementById('loading').textContent = 'Error: Please make sure "low_poly_classroom.glb" is in the same folder.';
         });
 
-        // 8. Animate
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
         }
 
-        // 9. Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
